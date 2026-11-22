@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ujian Online</title>
+<style>
+  /* ======================================================================
+     BAGIAN TAMPILAN (CSS)
+     Didesain "mobile-first": enak dipakai di HP dulu, baru tablet/laptop.
+     ====================================================================== */
+  :root{
+    --biru:#1d4ed8;
+    --biru-muda:#3b82f6;
+    --hijau:#16a34a;
+    --merah:#dc2626;
+    --kuning:#d97706;
+    --abu:#6b7280;
+    --abu-muda:#e5e7eb;
+    --bg:#f3f4f6;
+    --kartu:#ffffff;
+    --teks:#1f2937;
+    --radius:14px;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0; background:var(--bg); color:var(--teks);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    font-size:16px; line-height:1.45;
+  }
+  .layar{ display:none; min-height:100vh; flex-direction:column; }
+  .layar.aktif{ display:flex; }
+  .wrap{ max-width:720px; margin:0 auto; width:100%; padding:16px; }
+  .kartu{
+    background:var(--kartu); border-radius:var(--radius); padding:18px;
+    box-shadow:0 1px 3px rgba(0,0,0,.08); margin-bottom:14px;
+  }
+  h1{ font-size:1.3rem; margin:0 0 6px; }
+  h2{ font-size:1.05rem; margin:0 0 10px; }
+  p{ margin:0 0 10px; }
+  label{ display:block; font-weight:600; font-size:.92rem; margin:12px 0 5px; }
+  input[type=text]{
+    width:100%; padding:13px 14px; font-size:16px; border:2px solid var(--abu-muda);
+    border-radius:10px; background:#fff; color:var(--teks);
+  }
+  input[type=text]:focus{ outline:none; border-color:var(--biru-muda); }
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    border:none; border-radius:10px; padding:14px 18px; font-size:1rem; font-weight:700;
+    cursor:pointer; width:100%; color:#fff; background:var(--biru); margin-top:14px;
+    transition:opacity .15s;
+  }
+  .btn:active{ opacity:.8; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .btn.hijau{ background:var(--hijau); }
+  .btn.merah{ background:var(--merah); }
+  .btn.abu{ background:var(--abu); }
+  .btn.kecil{ width:auto; padding:10px 16px; font-size:.9rem; margin-top:0; }
+  .btn-baris{ display:flex; gap:10px; }
+  .btn-baris .btn{ margin-top:0; }
+  .pesan-error{
+    background:#fef2f2; border:1px solid #fecaca; color:#991b1b;
+    padding:12px 14px; border-radius:10px; margin-top:12px; font-size:.92rem;
+  }
+  .pesan-info{
+    background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a;
+    padding:12px 14px; border-radius:10px; margin-top:12px; font-size:.88rem;
+  }
+  .petunjuk ul{ margin:8px 0; padding-left:20px; font-size:.9rem; color:#374151; }
+  .petunjuk li{ margin-bottom:5px; }
+
+  /* ---- Header ujian (sticky di atas) ---- */
+  .header-ujian{
+    position:sticky; top:0; z-index:20; background:var(--kartu);
+    box-shadow:0 1px 4px rgba(0,0,0,.08); padding:10px 16px;
+  }
+  .header-baris{ display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .timer{
+    font-size:1.5rem; font-weight:800; font-variant-numeric:tabular-nums;
+    color:var(--biru);
+  }
+  .timer.waspada{ color:var(--kuning); }
+  .timer.kritis{ color:var(--merah); animation:kedip 1s infinite; }
+  @keyframes kedip{ 50%{ opacity:.35; } }
+  .info-kecil{ font-size:.72rem; color:var(--abu); text-align:right; }
+  .status-simpan{ font-size:.72rem; color:var(--abu); margin-top:3px; min-height:14px; }
+
+  /* ---- Navigator nomor soal ---- */
+  .navigator{
+    display:flex; gap:8px; overflow-x:auto; padding:10px 16px; background:var(--kartu);
+    border-bottom:1px solid var(--abu-muda);
+  }
+  .nomor{
+    flex:0 0 auto; width:38px; height:38px; border-radius:8px; border:2px solid var(--abu-muda);
+    background:#fff; color:var(--teks); font-weight:700; font-size:.85rem;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .nomor.terjawab{ background:#dcfce7; border-color:var(--hijau); color:#14532d; }
+  .nomor.aktif{ border-color:var(--biru); border-width:3px; }
+  .nomor.esai{ background:#fef9c3; }
+  .nomor.esai.terjawab{ background:#dcfce7; }
+
+  /* ---- Area soal ---- */
+  .area-soal{ flex:1; padding:16px; }
+  .label-nomor{ font-size:.82rem; font-weight:700; color:var(--abu); margin-bottom:6px; text-transform:uppercase; letter-spacing:.03em; }
+  .teks-soal{ font-size:1.05rem; margin-bottom:14px; white-space:pre-wrap; }
+  .gambar-soal{ max-width:100%; border-radius:10px; margin-bottom:14px; display:block; }
+  .opsi{
+    display:block; width:100%; text-align:left; padding:14px 16px; margin-bottom:10px;
+    border:2px solid var(--abu-muda); border-radius:12px; background:#fff; cursor:pointer;
+    font-size:.98rem; color:var(--teks);
+  }
+  .opsi b{ color:var(--biru); margin-right:8px; }
+  .opsi.terpilih{ border-color:var(--biru); background:#eff6ff; }
+  .opsi.terpilih b{ color:var(--biru); }
+  .kotak-esai{
+    background:#fffbeb; border:1px dashed var(--kuning); border-radius:12px; padding:14px; font-size:.9rem;
+  }
+  .kode-paket-besar{ font-weight:800; font-size:1.1rem; color:#92400e; letter-spacing:.05em; }
+  .centang-esai{ display:flex; align-items:center; gap:10px; margin-top:12px; font-size:.9rem; }
+  .centang-esai input{ width:20px; height:20px; }
+
+  /* ---- Navigasi bawah ---- */
+  .nav-bawah{
+    position:sticky; bottom:0; background:var(--kartu); border-top:1px solid var(--abu-muda);
+    padding:10px 16px; display:flex; gap:10px;
+  }
+  .nav-bawah .btn{ margin-top:0; }
+
+  /* ---- Hasil akhir ---- */
+  .skor{ font-size:3rem; font-weight:800; color:var(--biru); text-align:center; margin:6px 0; }
+  .ringkasan{ display:flex; justify-content:space-around; text-align:center; margin:16px 0; }
+  .ringkasan div b{ display:block; font-size:1.4rem; }
+  .overlay-muat{
+    position:fixed; inset:0; background:rgba(255,255,255,.92); z-index:50;
+    display:none; align-items:center; justify-content:center; flex-direction:column; gap:14px;
+    text-align:center; padding:20px;
+  }
+  .overlay-muat.aktif{ display:flex; }
+  .spinner{
+    width:40px; height:40px; border:4px solid var(--abu-muda); border-top-color:var(--biru);
+    border-radius:50%; animation:putar 0.8s linear infinite;
+  }
+  @keyframes putar{ to{ transform:rotate(360deg); } }
+  .peringatan-toast{
+    position:fixed; left:16px; right:16px; bottom:90px; z-index:60;
+    background:#1f2937; color:#fff; padding:12px 16px; border-radius:12px; font-size:.88rem;
+    box-shadow:0 4px 14px rgba(0,0,0,.25); display:none;
+  }
+  .peringatan-toast.tampil{ display:block; }
+  footer.ket{ text-align:center; font-size:.72rem; color:var(--abu); padding:14px; }
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     BAGIAN HTML: KERANGKA SETIAP LAYAR
+     Hanya SATU layar yang terlihat setiap saat (diatur lewat class "aktif").
+     ====================================================================== -->
+
+<!-- LAYAR 1: LOGIN -->
+<div id="layarLogin" class="layar aktif">
+  <div class="wrap">
+    <div class="kartu">
+      <h1>🔧 Ujian Online</h1>
+      <p style="color:var(--abu)">Teknik Pengelasan - SMKN 1 Duduksampeyan</p>
+    </div>
+
+    <div class="kartu petunjuk">
+      <h2>Sebelum Mulai, Baca Dulu</h2>
+      <ul>
+        <li>Pastikan sinyal internet HP Anda stabil.</li>
+        <li>Waktu ujian mulai berjalan TEPAT SAAT Anda menekan tombol "Mulai Ujian" di bawah.</li>
+        <li>Jangan keluar dari aplikasi/tab ini, mengecilkan layar, atau mematikan layar selama ujian. Sistem akan mencatatnya sebagai pelanggaran.</li>
+        <li>Soal esai TIDAK dijawab di sini. Tulis jawaban esai di lembar kertas yang diberikan guru, lalu tulis <b>Kode Paket</b> Anda di lembar itu.</li>
+        <li>Jika HP Anda mati/keluar tidak sengaja, login lagi dengan data yang SAMA. Soal dan sisa waktu Anda akan tetap seperti semula.</li>
+      </ul>
+    </div>
+
+    <div class="kartu">
+      <label for="inKelas">Kelas</label>
+      <input type="text" id="inKelas" placeholder="Contoh: XI TP 1" autocomplete="off">
+      <label for="inAbsen">Nomor Absen</label>
+      <input type="text" id="inAbsen" inputmode="numeric" placeholder="Contoh: 7" autocomplete="off">
+      <label for="inNama">Nama Lengkap</label>
+      <input type="text" id="inNama" placeholder="Contoh: Ahmad Fauzi" autocomplete="off">
+      <button class="btn hijau" id="btnMulai" onclick="mulaiUjian()">✅ Saya Siap, Mulai Ujian</button>
+      <div id="loginError"></div>
+    </div>
+    <footer class="ket">Aplikasi Ujian Online · dibuat dengan Google Apps Script</footer>
+  </div>
+</div>
+
+<!-- LAYAR 2: PESAN (dipakai utk error umum / sudah selesai / waktu habis tanpa rincian) -->
+<div id="layarPesan" class="layar">
+  <div class="wrap">
+    <div class="kartu" style="text-align:center; margin-top:40px;">
+      <h1 id="pesanJudul">Pemberitahuan</h1>
+      <p id="pesanIsi"></p>
+      <button class="btn abu" onclick="lokasiMuatUlang()">Muat Ulang Halaman</button>
+    </div>
+  </div>
+</div>
+
+<!-- LAYAR 3: UJIAN BERLANGSUNG -->
+<div id="layarUjian" class="layar" style="padding:0;">
+  <div class="header-ujian">
+    <div class="header-baris">
+      <div>
+        <div class="timer" id="tampilTimer">--:--</div>
+        <div class="status-simpan" id="statusSimpan"></div>
+      </div>
+      <div style="text-align:right;">
+        <div class="info-kecil">Kode Paket</div>
+        <div style="font-weight:800;" id="tampilKodePaket">-</div>
+        <button class="btn merah kecil" style="margin-top:6px;" onclick="konfirmasiKumpulkan()">Kumpulkan</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="navigator" id="navigator"></div>
+
+  <div class="area-soal" id="areaSoal"></div>
+
+  <div class="nav-bawah">
+    <button class="btn abu" id="btnSebelumnya" onclick="pindahSoal(-1)">⬅ Sebelumnya</button>
+    <button class="btn" id="btnBerikutnya" onclick="pindahSoal(1)">Berikutnya ➡</button>
+  </div>
+</div>
+
+<!-- LAYAR 4: HASIL AKHIR -->
+<div id="layarHasil" class="layar">
+  <div class="wrap">
+    <div class="kartu" style="text-align:center; margin-top:30px;">
+      <h1 id="hasilJudul">Ujian Selesai</h1>
+      <p id="hasilAlasan" style="color:var(--abu)"></p>
+      <div id="hasilNilaiBlok">
+        <div class="skor" id="hasilNilai">-</div>
+        <div class="ringkasan">
+          <div><b id="hasilBenar" style="color:var(--hijau)">0</b>Benar</div>
+          <div><b id="hasilSalah" style="color:var(--merah)">0</b>Salah</div>
+          <div><b id="hasilKosong" style="color:var(--abu)">0</b>Kosong</div>
+        </div>
+      </div>
+      <div id="hasilEsaiCatatan" class="pesan-info" style="display:none;"></div>
+      <p style="font-size:.85rem; color:var(--abu); margin-top:16px;">Anda boleh menutup halaman ini sekarang.</p>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: proses memuat/mengirim -->
+<div class="overlay-muat" id="overlayMuat">
+  <div class="spinner"></div>
+  <p id="overlayTeks">Memproses...</p>
+</div>
+
+<!-- TOAST: peringatan pelanggaran -->
+<div class="peringatan-toast" id="toastPelanggaran"></div>
+
+<script>
+/* ========================================================================
+   BAGIAN KONFIGURASI
+   -> UBAH BACKEND_URL DI BAWAH INI dengan URL Web App Apps Script Anda.
+      Contoh: 'https://script.google.com/macros/s/AKfycb..../exec'
+   ======================================================================== */
+var BACKEND_URL = 'TEMPEL_URL_WEB_APP_ANDA_DI_SINI';
+
+var JEDA_PELANGGARAN_MS = 4000;      // toleransi (grace period) sebelum pelanggaran dicatat
+var INTERVAL_AUTOSAVE_MS = 15000;    // simpan jawaban otomatis tiap 15 detik
+var BATAS_WAKTU_WASPADA_DETIK = 300; // timer warna kuning jika sisa < 5 menit
+var BATAS_WAKTU_KRITIS_DETIK = 60;   // timer warna merah + kedip jika sisa < 1 menit
+
+/* ========================================================================
+   BAGIAN STATE (data ujian yang sedang berjalan, disimpan di memori)
+   ======================================================================== */
+var S = {
+  kunciSesi: null, kodePaket: '', nama:'', kelas:'', absen:'',
+  sisaDetik: 0, batasPelanggaran: 3, jumlahPelanggaran: 0, tampilkanNilai: true,
+  daftarSoal: [],      // gabungan PG lalu Esai, berurutan, utk navigasi
+  jawaban: {},         // { idSoal: 'A' (utk PG) atau true (utk esai sudah dikerjakan) }
+  indexAktif: 0,
+  sedangKeluar: false, timerKeluar: null, jenisKeluarPertama: '',
+  wakeLock: null,
+  timerInterval: null, autosaveInterval: null,
+  adaPerubahanBelumTersimpan: false,
+  selesai: false
+};
+
+/* ========================================================================
+   BAGIAN ALAT BANTU UMUM
+   ======================================================================== */
+function $(id){ return document.getElementById(id); }
+
+function gantiLayar(id){
+  document.querySelectorAll('.layar').forEach(function(el){ el.classList.remove('aktif'); });
+  $(id).classList.add('aktif');
+}
+
+function tampilkanMuat(teks){
+  $('overlayTeks').textContent = teks || 'Memproses...';
+  $('overlayMuat').classList.add('aktif');
+}
+function sembunyikanMuat(){ $('overlayMuat').classList.remove('aktif'); }
+
+// Mengirim permintaan ke backend. Memakai Content-Type: text/plain supaya
+// browser TIDAK mengirim preflight OPTIONS (lihat penjelasan panjang di
+// bagian atas file Code.gs). batasWaktuMs = berapa lama menunggu sebelum
+// dianggap gagal/timeout (dibuat lebih lama utk 'kumpulkan' krn server bisa
+// antre saat banyak siswa mengumpulkan bersamaan).
+function panggilBackend(action, data, batasWaktuMs){
+  var payload = Object.assign({ action: action }, data || {});
+  var kontrol = new AbortController();
+  var waktuHabisId = setTimeout(function(){ kontrol.abort(); }, batasWaktuMs || 15000);
+
+  return fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    signal: kontrol.signal
+  }).then(function(res){
+    clearTimeout(waktuHabisId);
+    return res.json();
+  }).catch(function(err){
+    clearTimeout(waktuHabisId);
+    throw err;
+  });
+}
+
+function formatWaktu(detik){
+  if (detik < 0) detik = 0;
+  var j = Math.floor(detik / 3600);
+  var m = Math.floor((detik % 3600) / 60);
+  var d = Math.floor(detik % 60);
+  var dua = function(n){ return (n < 10 ? '0' : '') + n; };
+  return (j > 0 ? j + ':' + dua(m) : m) + ':' + dua(d);
+}
+
+function lokasiMuatUlang(){ location.reload(); }
+
+/* ========================================================================
+   BAGIAN 1: LOGIN
+   ======================================================================== */
+(function isiUlangFormLogin(){
+  try {
+    var simpanan = JSON.parse(localStorage.getItem('ujianLoginTerakhir') || 'null');
+    if (simpanan) {
+      $('inKelas').value = simpanan.kelas || '';
+      $('inAbsen').value = simpanan.absen || '';
+      $('inNama').value = simpanan.nama || '';
+    }
+  } catch(e) {}
+})();
+
+function mulaiUjian(){
+  var kelas = $('inKelas').value.trim();
+  var absen = $('inAbsen').value.trim();
+  var nama = $('inNama').value.trim();
+  $('loginError').innerHTML = '';
+
+  if (!kelas || !absen || !nama) {
+    $('loginError').innerHTML = '<div class="pesan-error">Kelas, nomor absen, dan nama wajib diisi.</div>';
+    return;
+  }
+  if (BACKEND_URL.indexOf('TEMPEL_URL_WEB_APP') !== -1) {
+    $('loginError').innerHTML = '<div class="pesan-error">BACKEND_URL belum diisi oleh guru. Lihat panduan pemasangan.</div>';
+    return;
+  }
+
+  $('btnMulai').disabled = true;
+  tampilkanMuat('Menyambungkan ke server...');
+
+  try { localStorage.setItem('ujianLoginTerakhir', JSON.stringify({kelas:kelas, absen:absen, nama:nama})); } catch(e){}
+
+  panggilBackend('login', { kelas: kelas, absen: absen, nama: nama }, 20000)
+    .then(function(hasil){ prosesHasilLogin(hasil); })
+    .catch(function(err){
+      sembunyikanMuat();
+      $('btnMulai').disabled = false;
+      $('loginError').innerHTML = '<div class="pesan-error">Gagal terhubung ke server. Periksa koneksi internet lalu coba lagi. (' + (err && err.message ? err.message : 'tidak diketahui') + ')</div>';
+    });
+}
+
+function prosesHasilLogin(hasil){
+  sembunyikanMuat();
+  $('btnMulai').disabled = false;
+
+  if (hasil.status === 'error') {
+    $('loginError').innerHTML = '<div class="pesan-error">' + hasil.pesan + '</div>';
+    return;
+  }
+  if (hasil.status === 'sudahSelesai') {
+    tampilkanLayarPesan('Sudah Dikumpulkan', hasil.pesan);
+    return;
+  }
+  if (hasil.status === 'waktuHabis') {
+    tampilkanHasilAkhir(hasil.hasil || { alasan: 'Waktu habis' });
+    return;
+  }
+  if (hasil.status !== 'ok') {
+    tampilkanLayarPesan('Terjadi Masalah', hasil.pesan || 'Respon server tidak dikenali.');
+    return;
+  }
+
+  siapkanUjian(hasil);
+}
+
+function tampilkanLayarPesan(judul, isi){
+  $('pesanJudul').textContent = judul;
+  $('pesanIsi').textContent = isi || '';
+  gantiLayar('layarPesan');
+}
+
+/* ========================================================================
+   BAGIAN 2: MENYIAPKAN & MENAMPILKAN UJIAN
+   ======================================================================== */
+function siapkanUjian(data){
+  S.kunciSesi = data.kunciSesi;
+  S.kodePaket = data.kodePaket;
+  S.nama = data.nama; S.kelas = data.kelas; S.absen = data.absen;
+  S.sisaDetik = data.sisaDetik;
+  S.batasPelanggaran = data.batasPelanggaran || 3;
+  S.jumlahPelanggaran = data.jumlahPelanggaranSaatIni || 0;
+  S.tampilkanNilai = !!data.tampilkanNilai;
+
+  S.daftarSoal = [];
+  (data.pg || []).forEach(function(s){ S.daftarSoal.push({ tipe:'pg', id:s.id, soal:s.soal, gambar:s.gambar, opsi:s.opsi }); });
+  (data.esai || []).forEach(function(s){ S.daftarSoal.push({ tipe:'esai', id:s.id, nomor:s.nomor, soal:s.soal, gambar:s.gambar }); });
+
+  // Gabungkan jawaban dari server dengan cadangan lokal (kalau ada autosave
+  // yang sempat gagal terkirim saat koneksi putus sebelumnya).
+  var jawabanServer = data.jawabanTersimpan || {};
+  var jawabanLokal = {};
+  try { jawabanLokal = JSON.parse(localStorage.getItem('jawabanCadangan_' + S.kunciSesi) || '{}'); } catch(e){}
+  S.jawaban = Object.assign({}, jawabanServer, jawabanLokal);
+
+  S.indexAktif = 0;
+  $('tampilKodePaket').textContent = S.kodePaket;
+
+  bangunNavigator();
+  tampilkanSoal(0);
+  mulaiTimer();
+  mulaiAutosaveBerkala();
+  mintaFullscreenAman();
+  mintaWakeLockAman();
+  pasangDeteksiKecurangan();
+  window.addEventListener('beforeunload', peringatanSebelumTutup);
+
+  gantiLayar('layarUjian');
+}
+
+function bangunNavigator(){
+  var nav = $('navigator');
+  nav.innerHTML = '';
+  S.daftarSoal.forEach(function(s, idx){
+    var btn = document.createElement('div');
+    btn.className = 'nomor' + (s.tipe === 'esai' ? ' esai' : '');
+    btn.textContent = (idx + 1);
+    btn.id = 'nomor-' + idx;
+    btn.onclick = function(){ tampilkanSoal(idx); };
+    nav.appendChild(btn);
+  });
+  perbaruiNavigator();
+}
+
+function perbaruiNavigator(){
+  S.daftarSoal.forEach(function(s, idx){
+    var el = $('nomor-' + idx);
+    if (!el) return;
+    el.classList.toggle('aktif', idx === S.indexAktif);
+    el.classList.toggle('terjawab', S.jawaban[s.id] !== undefined && S.jawaban[s.id] !== '' && S.jawaban[s.id] !== false);
+  });
+}
+
+function tampilkanSoal(idx){
+  if (idx < 0 || idx >= S.daftarSoal.length) return;
+  S.indexAktif = idx;
+  var s = S.daftarSoal[idx];
+  var html = '';
+
+  if (s.tipe === 'pg') {
+    html += '<div class="label-nomor">Soal Pilihan Ganda Nomor ' + (idx + 1) + '</div>';
+    html += '<div class="teks-soal">' + escapeHtml(s.soal) + '</div>';
+    if (s.gambar) html += '<img class="gambar-soal" src="' + escapeAttr(s.gambar) + '" alt="Gambar soal">';
+    Object.keys(s.opsi).sort().forEach(function(huruf){
+      var terpilih = S.jawaban[s.id] === huruf;
+      html += '<button type="button" class="opsi' + (terpilih ? ' terpilih' : '') + '" onclick="pilihOpsi(\'' + s.id + '\',\'' + huruf + '\')"><b>' + huruf + '.</b> ' + escapeHtml(s.opsi[huruf]) + '</button>';
+    });
+  } else {
+    html += '<div class="label-nomor">Soal Esai Nomor ' + s.nomor + '</div>';
+    html += '<div class="teks-soal">' + escapeHtml(s.soal) + '</div>';
+    if (s.gambar) html += '<img class="gambar-soal" src="' + escapeAttr(s.gambar) + '" alt="Gambar soal">';
+    html += '<div class="kotak-esai">Jawaban soal ini DITULIS DI KERTAS, bukan di HP. Tulis <b>Kode Paket: <span class="kode-paket-besar">' + S.kodePaket + '</span></b> di lembar jawaban Anda supaya guru bisa mencocokkan.</div>';
+    html += '<label class="centang-esai"><input type="checkbox" ' + (S.jawaban[s.id] ? 'checked' : '') + ' onchange="tandaiEsai(\'' + s.id + '\', this.checked)"> Saya sudah mengerjakan soal ini di kertas</label>';
+  }
+  $('areaSoal').innerHTML = html;
+
+  $('btnSebelumnya').disabled = (idx === 0);
+  $('btnBerikutnya').textContent = (idx === S.daftarSoal.length - 1) ? 'Selesai, Lihat Ringkasan ➡' : 'Berikutnya ➡';
+  perbaruiNavigator();
+  window.scrollTo(0, 0);
+}
+
+function pindahSoal(arah){
+  var tujuan = S.indexAktif + arah;
+  if (tujuan >= S.daftarSoal.length) { konfirmasiKumpulkan(); return; }
+  tampilkanSoal(tujuan);
+}
+
+function pilihOpsi(idSoal, huruf){
+  S.jawaban[idSoal] = huruf;
+  S.adaPerubahanBelumTersimpan = true;
+  simpanCadanganLokal();
+  tampilkanSoal(S.indexAktif);
+}
+
+function tandaiEsai(idSoal, sudah){
+  S.jawaban[idSoal] = sudah ? true : '';
+  S.adaPerubahanBelumTersimpan = true;
+  simpanCadanganLokal();
+  perbaruiNavigator();
+}
+
+function simpanCadanganLokal(){
+  try { localStorage.setItem('jawabanCadangan_' + S.kunciSesi, JSON.stringify(S.jawaban)); } catch(e){}
+}
+
+function escapeHtml(t){
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+function escapeAttr(t){ return escapeHtml(t); }
+
+/* ========================================================================
+   BAGIAN 3: TIMER (berjalan di HP, disinkronkan ulang tiap autosave)
+   ======================================================================== */
+function mulaiTimer(){
+  perbaruiTampilanTimer();
+  if (S.timerInterval) clearInterval(S.timerInterval);
+  S.timerInterval = setInterval(function(){
+    S.sisaDetik--;
+    if (S.sisaDetik <= 0) {
+      S.sisaDetik = 0;
+      perbaruiTampilanTimer();
+      clearInterval(S.timerInterval);
+      waktuHabisOtomatis();
+      return;
+    }
+    perbaruiTampilanTimer();
+  }, 1000);
+}
+
+function perbaruiTampilanTimer(){
+  var el = $('tampilTimer');
+  el.textContent = formatWaktu(S.sisaDetik);
+  el.classList.toggle('waspada', S.sisaDetik <= BATAS_WAKTU_WASPADA_DETIK && S.sisaDetik > BATAS_WAKTU_KRITIS_DETIK);
+  el.classList.toggle('kritis', S.sisaDetik <= BATAS_WAKTU_KRITIS_DETIK);
+}
+
+function waktuHabisOtomatis(){
+  tampilkanMuat('Waktu habis, mengumpulkan jawaban Anda...');
+  kirimKumpulkan(true);
+}
+
+/* ========================================================================
+   BAGIAN 4: AUTOSAVE (simpan jawaban otomatis ke server)
+   ======================================================================== */
+function mulaiAutosaveBerkala(){
+  if (S.autosaveInterval) clearInterval(S.autosaveInterval);
+  S.autosaveInterval = setInterval(function(){
+    if (S.adaPerubahanBelumTersimpan && !S.selesai) jalankanAutosave();
+  }, INTERVAL_AUTOSAVE_MS);
+}
+
+function jalankanAutosave(){
+  if (S.selesai) return;
+  var jawabanDikirim = Object.assign({}, S.jawaban);
+  S.adaPerubahanBelumTersimpan = false;
+  $('statusSimpan').textContent = 'Menyimpan...';
+
+  panggilBackend('autosave', { kunciSesi: S.kunciSesi, jawaban: jawabanDikirim }, 15000)
+    .then(function(hasil){
+      if (hasil.status === 'ok') {
+        $('statusSimpan').textContent = 'Tersimpan ✓ ' + new Date().toLocaleTimeString('id-ID');
+        // Sinkronkan ulang sisa waktu dengan server supaya tidak meleset jauh.
+        if (typeof hasil.sisaDetik === 'number') S.sisaDetik = hasil.sisaDetik;
+      } else if (hasil.status === 'waktuHabis') {
+        clearInterval(S.timerInterval);
+        tampilkanHasilAkhir(hasil.hasil || { alasan: 'Waktu habis' });
+      } else if (hasil.status === 'sudahSelesai') {
+        clearInterval(S.timerInterval);
+        tampilkanLayarPesan('Sudah Dikumpulkan', 'Ujian Anda sudah tercatat selesai.');
+      }
+    })
+    .catch(function(){
+      $('statusSimpan').textContent = 'Belum tersambung, jawaban tersimpan di HP ini.';
+      S.adaPerubahanBelumTersimpan = true; // coba lagi di interval berikutnya
+    });
+}
+
+/* ========================================================================
+   BAGIAN 5: PENGUMPULAN (manual, atau otomatis krn waktu habis/pelanggaran)
+   ======================================================================== */
+function konfirmasiKumpulkan(){
+  if (S.selesai) return;
+  var totalSoal = S.daftarSoal.length;
+  var dijawab = S.daftarSoal.filter(function(s){
+    var j = S.jawaban[s.id];
+    return j !== undefined && j !== '' && j !== false;
+  }).length;
+  var belum = totalSoal - dijawab;
+  var pesan = 'Soal terjawab/ditandai: ' + dijawab + ' dari ' + totalSoal + '.';
+  if (belum > 0) pesan += '\nMasih ada ' + belum + ' soal yang belum dijawab/ditandai.';
+  pesan += '\n\nKumpulkan sekarang? Jawaban yang sudah masuk TIDAK BISA diubah lagi setelah ini.';
+
+  if (confirm(pesan)) {
+    tampilkanMuat('Mengumpulkan jawaban Anda, mohon tunggu, jangan tutup halaman ini...');
+    kirimKumpulkan(false);
+  }
+}
+
+function kirimKumpulkan(otomatis, percobaanKe){
+  percobaanKe = percobaanKe || 1;
+  panggilBackend('kumpulkan', { kunciSesi: S.kunciSesi, jawabanAkhir: S.jawaban }, 40000)
+    .then(function(hasil){
+      if (hasil.status === 'terkumpul') {
+        tampilkanHasilAkhir(hasil.hasil);
+      } else if (hasil.status === 'sudahSelesai') {
+        tampilkanLayarPesan('Sudah Dikumpulkan', hasil.pesan || 'Ujian Anda sudah tercatat selesai sebelumnya.');
+      } else {
+        sembunyikanMuat();
+        alert('Gagal mengumpulkan: ' + (hasil.pesan || 'kesalahan tidak diketahui') + '\nJawaban Anda sudah tersimpan otomatis di server, silakan coba tombol Kumpulkan lagi.');
+      }
+    })
+    .catch(function(err){
+      if (percobaanKe < 3) {
+        tampilkanMuat('Koneksi lambat, mencoba lagi... (' + percobaanKe + '/3)');
+        setTimeout(function(){ kirimKumpulkan(otomatis, percobaanKe + 1); }, 3000);
+      } else {
+        sembunyikanMuat();
+        alert('Tidak bisa mengumpulkan karena koneksi bermasalah. Jawaban Anda sudah tersimpan otomatis di server sejauh ini. Periksa internet Anda lalu tekan tombol Kumpulkan sekali lagi.');
+      }
+    });
+}
+
+function tampilkanHasilAkhir(hasil){
+  S.selesai = true;
+  sembunyikanMuat();
+  clearInterval(S.timerInterval);
+  clearInterval(S.autosaveInterval);
+  lepaskanWakeLockAman();
+  keluarFullscreenAman();
+  try { localStorage.removeItem('jawabanCadangan_' + S.kunciSesi); } catch(e){}
+
+  $('hasilAlasan').textContent = hasil.alasan || '';
+  if (hasil.tampilkanNilai === false || hasil.nilai === null || hasil.nilai === undefined) {
+    $('hasilNilaiBlok').style.display = 'none';
+  } else {
+    $('hasilNilaiBlok').style.display = '';
+    $('hasilNilai').textContent = hasil.nilai;
+    $('hasilBenar').textContent = hasil.benar;
+    $('hasilSalah').textContent = hasil.salah;
+    $('hasilKosong').textContent = hasil.kosong;
+  }
+  if (hasil.jumlahEsai > 0) {
+    $('hasilEsaiCatatan').style.display = '';
+    $('hasilEsaiCatatan').textContent = 'Ada ' + hasil.jumlahEsai + ' soal esai yang dinilai manual oleh guru dari lembar kertas Anda (Kode Paket: ' + S.kodePaket + ').';
+  } else {
+    $('hasilEsaiCatatan').style.display = 'none';
+  }
+  gantiLayar('layarHasil');
+}
+
+function peringatanSebelumTutup(e){
+  if (S.selesai) return;
+  e.preventDefault();
+  e.returnValue = '';
+}
+
+/* ========================================================================
+   BAGIAN 6: ANTI-KECURANGAN
+   (fullscreen, deteksi pindah tab/aplikasi, kehilangan fokus)
+   Dibuat dengan "jeda toleransi" (grace period) supaya notifikasi sekilas
+   atau sentuhan tidak sengaja TIDAK langsung dihitung pelanggaran - hanya
+   dihitung jika siswa benar-benar masih "pergi" setelah beberapa detik.
+   ======================================================================== */
+function mintaFullscreenAman(){
+  var el = document.documentElement;
+  var fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (fn) {
+    try {
+      var hasil = fn.call(el);
+      if (hasil && typeof hasil.catch === 'function') hasil.catch(function(){});
+    } catch(e){}
+  }
+  // Catatan: iPhone/iPad Safari umumnya TIDAK mendukung mode layar penuh
+  // di browser biasa - ini normal, ujian tetap berjalan tanpa fullscreen,
+  // deteksi pindah tab/aplikasi di bawah tetap aktif.
+}
+function keluarFullscreenAman(){
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(function(){});
+  }
+}
+
+function pasangDeteksiKecurangan(){
+  document.addEventListener('visibilitychange', function(){
+    if (document.hidden) tandaiKemungkinanKeluar('Berpindah tab/aplikasi lain');
+    else tandaiKembali();
+  });
+  window.addEventListener('blur', function(){ tandaiKemungkinanKeluar('Layar kehilangan fokus'); });
+  window.addEventListener('focus', function(){ tandaiKembali(); });
+  document.addEventListener('fullscreenchange', function(){
+    if (!document.fullscreenElement) tandaiKemungkinanKeluar('Keluar dari mode layar penuh');
+    else tandaiKembali();
+  });
+}
+
+function tandaiKemungkinanKeluar(jenis){
+  if (S.selesai) return;
+  if (S.sedangKeluar) return; // sudah sedang menghitung jeda, tidak perlu mulai ulang
+  S.sedangKeluar = true;
+  S.jenisKeluarPertama = jenis;
+  S.timerKeluar = setTimeout(function(){
+    if (S.sedangKeluar) kirimPelanggaran(S.jenisKeluarPertama);
+  }, JEDA_PELANGGARAN_MS);
+}
+
+function tandaiKembali(){
+  S.sedangKeluar = false;
+  if (S.timerKeluar) { clearTimeout(S.timerKeluar); S.timerKeluar = null; }
+}
+
+function kirimPelanggaran(jenis){
+  S.sedangKeluar = false;
+  if (S.selesai) return;
+  panggilBackend('pelanggaran', { kunciSesi: S.kunciSesi, jenis: jenis }, 15000)
+    .then(function(hasil){
+      if (hasil.status === 'otomatisDikumpulkan') {
+        clearInterval(S.timerInterval);
+        clearInterval(S.autosaveInterval);
+        tampilkanHasilAkhir(hasil.hasil);
+      } else if (hasil.status === 'ok') {
+        S.jumlahPelanggaran = hasil.jumlahPelanggaran;
+        tampilkanToastPelanggaran(jenis, hasil.jumlahPelanggaran, hasil.batasPelanggaran);
+      } else if (hasil.status === 'sudahSelesai') {
+        tampilkanLayarPesan('Sudah Dikumpulkan', 'Ujian Anda sudah tercatat selesai.');
+      }
+    })
+    .catch(function(){ /* jika gagal terkirim karena koneksi, cukup diabaikan - bukan hal fatal */ });
+}
+
+function tampilkanToastPelanggaran(jenis, jumlah, batas){
+  var toast = $('toastPelanggaran');
+  toast.textContent = '⚠ Pelanggaran tercatat (' + jenis + '). Total: ' + jumlah + ' dari maksimal ' + batas + '. Ujian akan otomatis dikumpulkan jika melebihi batas.';
+  toast.classList.add('tampil');
+  setTimeout(function(){ toast.classList.remove('tampil'); }, 6000);
+}
+
+/* ========================================================================
+   BAGIAN 7: WAKE LOCK (supaya layar HP tidak mati sendiri saat ujian)
+   Tidak semua HP/browser mendukung ini (misal sebagian iPhone lama) -
+   dibuat aman (tidak akan error) jika tidak didukung.
+   ======================================================================== */
+function mintaWakeLockAman(){
+  if (!('wakeLock' in navigator)) return;
+  navigator.wakeLock.request('screen').then(function(wl){
+    S.wakeLock = wl;
+  }).catch(function(){ /* abaikan jika ditolak/tidak didukung */ });
+}
+function lepaskanWakeLockAman(){
+  if (S.wakeLock) { try { S.wakeLock.release(); } catch(e){} S.wakeLock = null; }
+}
+document.addEventListener('visibilitychange', function(){
+  // Browser otomatis melepas wake lock saat halaman disembunyikan.
+  // Minta lagi otomatis saat siswa kembali, SELAMA ujian belum selesai.
+  if (!document.hidden && S.kunciSesi && !S.selesai && !S.wakeLock) mintaWakeLockAman();
+});
+</script>
+</body>
+</html>
