@@ -770,8 +770,15 @@ function catatUkuranLayarAwal(){
 function sedangMengetik(){
   var el = document.activeElement;
   if (!el) return false;
+  if (el.isContentEditable === true) return true;
   var tag = String(el.tagName || '').toUpperCase();
-  return tag === 'TEXTAREA' || tag === 'INPUT' || el.isContentEditable === true;
+  if (tag === 'TEXTAREA') return true;
+  if (tag !== 'INPUT') return false;
+  // Checkbox/radio/tombol TIDAK memunculkan keyboard HP, jadi tidak boleh
+  // dianggap "sedang mengetik" - kalau dianggap mengetik, deteksi layar
+  // terbagi jadi dilewati padahal siswa hanya mencentang kotak esai.
+  var jenis = String(el.type || 'text').toLowerCase();
+  return ['checkbox','radio','button','submit','reset','range','color','file'].indexOf(jenis) === -1;
 }
 
 function cekUkuranLayar(){
@@ -812,7 +819,9 @@ function cekLayarTerbagiSaatMulai(){
     var luas = window.innerWidth * window.innerHeight;
     var luasLayarHp = screen.width * screen.height;
     if (!luas || !luasLayarHp) return;
-    if (luas / luasLayarHp < AMBANG_LAYAR_AWAL) {
+    // S.layarTerbagi dicek supaya satu kejadian tidak dihitung dua kali, yaitu
+    // kalau pengecekan ukuran layar di atas sudah lebih dulu mencatatnya.
+    if (!S.layarTerbagi && luas / luasLayarHp < AMBANG_LAYAR_AWAL) {
       S.layarTerbagi = true;
       kirimPelanggaran('Ujian dibuka dalam mode layar terbagi (split screen)');
     }
