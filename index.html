@@ -105,7 +105,11 @@
   .area-soal{ flex:1; padding:16px; }
   .label-nomor{ font-size:.82rem; font-weight:700; color:var(--abu); margin-bottom:6px; text-transform:uppercase; letter-spacing:.03em; }
   .teks-soal{ font-size:1.05rem; margin-bottom:14px; white-space:pre-wrap; }
-  .gambar-soal{ max-width:100%; border-radius:10px; margin-bottom:14px; display:block; }
+  /* Semua gambar tampil di bingkai berukuran TETAP. object-fit:contain
+     membuat gambar diperbesar/diperkecil agar pas di bingkai tanpa
+     terpotong dan tanpa gepeng, sehingga ukurannya seragam antar soal. */
+  .gambar-soal{ display:block; width:100%; height:260px; object-fit:contain; background:#fff; border:1px solid #e5e7eb; border-radius:10px; margin-bottom:14px; }
+  .gambar-opsi{ display:block; width:100%; height:150px; object-fit:contain; background:#fff; border:1px solid #e5e7eb; border-radius:6px; margin:8px 0 0; pointer-events:none; }
   .opsi{
     display:block; width:100%; text-align:left; padding:14px 16px; margin-bottom:10px;
     border:2px solid var(--abu-muda); border-radius:12px; background:#fff; cursor:pointer;
@@ -189,6 +193,7 @@
         <li>Pastikan sinyal internet HP Anda stabil.</li>
         <li>Waktu ujian mulai berjalan TEPAT SAAT Anda menekan tombol "Mulai Ujian" di bawah.</li>
         <li>Jangan keluar dari aplikasi/tab ini, mengecilkan layar, atau mematikan layar selama ujian. Sistem akan mencatatnya sebagai pelanggaran.</li>
+        <li>Jangan membuka aplikasi lain berdampingan dengan ujian (mode <b>layar terbagi</b>/split screen). Sistem mendeteksi dan mencatatnya sebagai pelanggaran.</li>
         <li>Soal esai TIDAK dijawab di sini. Tulis jawaban esai di lembar kertas yang diberikan guru, lalu tulis <b>Kode Paket</b> Anda di lembar itu.</li>
         <li>Jika HP Anda mati/keluar tidak sengaja, login lagi dengan data yang SAMA. Soal dan sisa waktu Anda akan tetap seperti semula.</li>
       </ul>
@@ -282,7 +287,11 @@
    ======================================================================== */
 var BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzZLW9KZDJ54BCWUvLiWG3tvRXtBQt-6UQbJX_YAWiKwUpu72EhGBDPvJwNOPlXoAVo/exec';
 
-var JEDA_PELANGGARAN_MS = 4000;      // toleransi (grace period) sebelum pelanggaran dicatat
+var JEDA_PELANGGARAN_MS = 9000;      // toleransi (grace period) sebelum pelanggaran dicatat
+var JEDA_CEK_UKURAN_MS = 1200;       // jeda pemastian sebelum perubahan ukuran layar dinilai
+var AMBANG_LAYAR_TERBAGI = 0.70;     // luas layar < 70% dari semula = dugaan mode layar terbagi
+var AMBANG_UKURAN_WAJAR = 0.85;      // luas layar >= 85% = normal/rotasi, patokan diperbarui
+var AMBANG_LAYAR_AWAL = 0.60;        // saat mulai: luas < 60% dari layar HP = dugaan sudah terbagi
 var INTERVAL_AUTOSAVE_MS = 15000;    // simpan jawaban otomatis tiap 15 detik
 var BATAS_WAKTU_WASPADA_DETIK = 300; // timer warna kuning jika sisa < 5 menit
 var BATAS_WAKTU_KRITIS_DETIK = 60;   // timer warna merah + kedip jika sisa < 1 menit
@@ -297,6 +306,7 @@ var S = {
   jawaban: {},         // { idSoal: 'A' (utk PG) atau true (utk esai sudah dikerjakan) }
   indexAktif: 0,
   sedangKeluar: false, timerKeluar: null, jenisKeluarPertama: '',
+  luasLayarAwal: 0, layarTerbagi: false, timerUkuran: null,
   wakeLock: null,
   timerInterval: null, autosaveInterval: null,
   adaPerubahanBelumTersimpan: false,
@@ -440,7 +450,7 @@ function siapkanUjian(data){
   S.tampilkanNilai = !!data.tampilkanNilai;
 
   S.daftarSoal = [];
-  (data.pg || []).forEach(function(s){ S.daftarSoal.push({ tipe:'pg', id:s.id, soal:s.soal, gambar:s.gambar, opsi:s.opsi }); });
+  (data.pg || []).forEach(function(s){ S.daftarSoal.push({ tipe:'pg', id:s.id, soal:s.soal, gambar:s.gambar, opsi:s.opsi, opsiGambar:s.opsiGambar || {} }); });
   (data.esai || []).forEach(function(s){ S.daftarSoal.push({ tipe:'esai', id:s.id, nomor:s.nomor, soal:s.soal, gambar:s.gambar }); });
 
   // Gabungkan jawaban dari server dengan cadangan lokal (kalau ada autosave
@@ -500,7 +510,7 @@ function tampilkanSoal(idx){
     if (s.gambar) html += '<img class="gambar-soal" src="' + escapeAttr(s.gambar) + '" alt="Gambar soal">';
     Object.keys(s.opsi).sort().forEach(function(huruf){
       var terpilih = S.jawaban[s.id] === huruf;
-      html += '<button type="button" class="opsi' + (terpilih ? ' terpilih' : '') + '" onclick="pilihOpsi(\'' + s.id + '\',\'' + huruf + '\')"><b>' + huruf + '.</b> ' + escapeHtml(s.opsi[huruf]) + '</button>';
+      html += '<button type="button" class="opsi' + (terpilih ? ' terpilih' : '') + '" onclick="pilihOpsi(\'' + s.id + '\',\'' + huruf + '\')"><b>' + huruf + '.</b> ' + escapeHtml(s.opsi[huruf]) + (s.opsiGambar && s.opsiGambar[huruf] ? '<img class="gambar-opsi" src="' + escapeAttr(s.opsiGambar[huruf]) + '" alt="Gambar pilihan ' + huruf + '">' : '') + '</button>';
     });
   } else {
     html += '<div class="label-nomor">Soal Esai Nomor ' + s.nomor + '</div>';
@@ -721,16 +731,105 @@ function keluarFullscreenAman(){
 }
 
 function pasangDeteksiKecurangan(){
+  // (1) Benar-benar pindah tab/aplikasi lain (halaman jadi tidak terlihat).
   document.addEventListener('visibilitychange', function(){
     if (document.hidden) tandaiKemungkinanKeluar('Berpindah tab/aplikasi lain');
     else tandaiKembali();
   });
-  window.addEventListener('blur', function(){ tandaiKemungkinanKeluar('Layar kehilangan fokus'); });
-  window.addEventListener('focus', function(){ tandaiKembali(); });
+
+  // (2) Keluar dari mode layar penuh.
   document.addEventListener('fullscreenchange', function(){
     if (!document.fullscreenElement) tandaiKemungkinanKeluar('Keluar dari mode layar penuh');
     else tandaiKembali();
   });
+
+  // (3) Layar kehilangan fokus (event "blur"): TIDAK dihitung sebagai
+  //     pelanggaran, hanya diberi peringatan di layar siswa. Alasannya,
+  //     di HP event ini terlalu sering terpicu oleh hal yang bukan
+  //     kecurangan (notifikasi masuk, layar mau mati, sentuhan tak sengaja).
+  window.addEventListener('blur', function(){
+    if (S.selesai || !S.kunciSesi) return;
+    tampilkanToastInfo('⚠ Layar sempat kehilangan fokus. Tetap fokus pada halaman ujian ya.');
+  });
+  window.addEventListener('focus', function(){ tandaiKembali(); });
+
+  // (4) Perubahan ukuran layar -> deteksi mode layar terbagi (split screen).
+  catatUkuranLayarAwal();
+  window.addEventListener('resize', cekUkuranLayar);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', cekUkuranLayar);
+  cekLayarTerbagiSaatMulai();
+}
+
+/* --- Deteksi mode layar terbagi (split screen) --------------------------
+   Saat HP Android masuk mode layar terbagi, jendela browser mengecil
+   drastis. Ini dipakai sebagai sinyal karena membuka aplikasi lain di
+   "separuh layar" TIDAK terdeteksi oleh pengecekan nomor (1) di atas -
+   halaman ujian tetap dianggap terlihat oleh browser.
+   Rotasi layar dan munculnya keyboard HP sengaja TIDAK dihitung. */
+function catatUkuranLayarAwal(){
+  S.luasLayarAwal = window.innerWidth * window.innerHeight;
+  S.layarTerbagi = false;
+}
+
+function sedangMengetik(){
+  var el = document.activeElement;
+  if (!el) return false;
+  if (el.isContentEditable === true) return true;
+  var tag = String(el.tagName || '').toUpperCase();
+  if (tag === 'TEXTAREA') return true;
+  if (tag !== 'INPUT') return false;
+  // Checkbox/radio/tombol TIDAK memunculkan keyboard HP, jadi tidak boleh
+  // dianggap "sedang mengetik" - kalau dianggap mengetik, deteksi layar
+  // terbagi jadi dilewati padahal siswa hanya mencentang kotak esai.
+  var jenis = String(el.type || 'text').toLowerCase();
+  return ['checkbox','radio','button','submit','reset','range','color','file'].indexOf(jenis) === -1;
+}
+
+function cekUkuranLayar(){
+  if (S.selesai || !S.kunciSesi || !S.luasLayarAwal) return;
+  if (S.timerUkuran) clearTimeout(S.timerUkuran);
+  // Tunggu sebentar supaya ukuran sudah stabil (perubahan sering bertahap).
+  S.timerUkuran = setTimeout(function(){
+    if (S.selesai || !S.kunciSesi) return;
+    if (sedangMengetik()) return;              // keyboard HP sedang muncul: abaikan
+    var luas = window.innerWidth * window.innerHeight;
+    if (!luas) return;
+    var rasio = luas / S.luasLayarAwal;
+    if (rasio >= AMBANG_UKURAN_WAJAR) {
+      // Ukuran normal kembali (atau sekadar rotasi layar): perbarui patokan.
+      S.luasLayarAwal = luas;
+      S.layarTerbagi = false;
+    } else if (rasio < AMBANG_LAYAR_TERBAGI && !S.layarTerbagi) {
+      // Baru masuk mode layar terbagi -> dicatat langsung, tanpa jeda
+      // toleransi, karena ini bukan gangguan sekilas.
+      S.layarTerbagi = true;
+      kirimPelanggaran('Mode layar terbagi (split screen) terdeteksi');
+    }
+  }, JEDA_CEK_UKURAN_MS);
+}
+
+// Jika siswa sudah mengatur layar terbagi SEBELUM membuka ujian, patokan di
+// atas akan terlanjur mengira ukuran kecil itu normal. Jadi saat ujian mulai,
+// ukuran jendela dibandingkan dengan ukuran layar HP-nya. Hanya dijalankan di
+// perangkat layar sentuh berukuran HP, supaya jendela browser di laptop yang
+// memang tidak dimaksimalkan tidak ikut terhitung.
+function cekLayarTerbagiSaatMulai(){
+  var perangkatSentuh = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  if (!perangkatSentuh) return;
+  if (!screen || !screen.width || !screen.height) return;
+  if (Math.max(screen.width, screen.height) >= 1024) return;   // tablet/laptop: lewati
+  setTimeout(function(){
+    if (S.selesai || !S.kunciSesi || sedangMengetik()) return;
+    var luas = window.innerWidth * window.innerHeight;
+    var luasLayarHp = screen.width * screen.height;
+    if (!luas || !luasLayarHp) return;
+    // S.layarTerbagi dicek supaya satu kejadian tidak dihitung dua kali, yaitu
+    // kalau pengecekan ukuran layar di atas sudah lebih dulu mencatatnya.
+    if (!S.layarTerbagi && luas / luasLayarHp < AMBANG_LAYAR_AWAL) {
+      S.layarTerbagi = true;
+      kirimPelanggaran('Ujian dibuka dalam mode layar terbagi (split screen)');
+    }
+  }, 1500);
 }
 
 function tandaiKemungkinanKeluar(jenis){
@@ -772,6 +871,15 @@ function tampilkanToastPelanggaran(jenis, jumlah, batas){
   toast.textContent = '⚠ Pelanggaran tercatat (' + jenis + '). Total: ' + jumlah + ' dari maksimal ' + batas + '. Ujian akan otomatis dikumpulkan jika melebihi batas.';
   toast.classList.add('tampil');
   setTimeout(function(){ toast.classList.remove('tampil'); }, 6000);
+}
+
+// Peringatan di layar siswa yang TIDAK dicatat sebagai pelanggaran.
+function tampilkanToastInfo(pesan){
+  var toast = $('toastPelanggaran');
+  if (!toast) return;
+  toast.textContent = pesan;
+  toast.classList.add('tampil');
+  setTimeout(function(){ toast.classList.remove('tampil'); }, 5000);
 }
 
 /* ========================================================================
