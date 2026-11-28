@@ -105,6 +105,7 @@
   .area-soal{ flex:1; padding:16px; }
   .label-nomor{ font-size:.82rem; font-weight:700; color:var(--abu); margin-bottom:6px; text-transform:uppercase; letter-spacing:.03em; }
   .teks-soal{ font-size:1.05rem; margin-bottom:14px; white-space:pre-wrap; }
+  .gambar-opsi{ display:block; max-width:100%; max-height:180px; margin:8px auto 0; border-radius:6px; background:#fff; pointer-events:none; }
   .gambar-soal{ max-width:100%; border-radius:10px; margin-bottom:14px; display:block; }
   .opsi{
     display:block; width:100%; text-align:left; padding:14px 16px; margin-bottom:10px;
@@ -446,7 +447,7 @@ function siapkanUjian(data){
   S.tampilkanNilai = !!data.tampilkanNilai;
 
   S.daftarSoal = [];
-  (data.pg || []).forEach(function(s){ S.daftarSoal.push({ tipe:'pg', id:s.id, soal:s.soal, gambar:s.gambar, opsi:s.opsi }); });
+  (data.pg || []).forEach(function(s){ S.daftarSoal.push({ tipe:'pg', id:s.id, soal:s.soal, gambar:s.gambar, opsi:s.opsi, opsiGambar:s.opsiGambar || {} }); });
   (data.esai || []).forEach(function(s){ S.daftarSoal.push({ tipe:'esai', id:s.id, nomor:s.nomor, soal:s.soal, gambar:s.gambar }); });
 
   // Gabungkan jawaban dari server dengan cadangan lokal (kalau ada autosave
@@ -506,7 +507,7 @@ function tampilkanSoal(idx){
     if (s.gambar) html += '<img class="gambar-soal" src="' + escapeAttr(s.gambar) + '" alt="Gambar soal">';
     Object.keys(s.opsi).sort().forEach(function(huruf){
       var terpilih = S.jawaban[s.id] === huruf;
-      html += '<button type="button" class="opsi' + (terpilih ? ' terpilih' : '') + '" onclick="pilihOpsi(\'' + s.id + '\',\'' + huruf + '\')"><b>' + huruf + '.</b> ' + escapeHtml(s.opsi[huruf]) + '</button>';
+      html += '<button type="button" class="opsi' + (terpilih ? ' terpilih' : '') + '" onclick="pilihOpsi(\'' + s.id + '\',\'' + huruf + '\')"><b>' + huruf + '.</b> ' + escapeHtml(s.opsi[huruf]) + (s.opsiGambar && s.opsiGambar[huruf] ? '<img class="gambar-opsi" src="' + escapeAttr(s.opsiGambar[huruf]) + '" alt="Gambar pilihan ' + huruf + '">' : '') + '</button>';
     });
   } else {
     html += '<div class="label-nomor">Soal Esai Nomor ' + s.nomor + '</div>';
